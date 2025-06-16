@@ -3,21 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>抖音风格网页呼叫客服</title>
+  <title>网页呼叫客服 - 抖音风格</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap');
-    
+    /* 抖音风格红色渐变背景，容器圆角 */
     body {
-      margin: 0;
-      height: 100vh;
+      margin: 0; padding: 0;
       background: linear-gradient(135deg, #f20000, #ff4141);
-      font-family: 'Montserrat', Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
+      font-family: '微软雅黑', Arial, sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh;
       user-select: none;
+      color: #333;
     }
     .container {
       background: #fff;
@@ -29,7 +25,6 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      color: #333;
     }
     .avatar {
       width: 100px;
@@ -68,6 +63,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      user-select: none;
     }
     #callButton {
       background: #27ae60;
@@ -99,6 +95,7 @@
       height: 50px;
       width: 180px;
       margin-top: 20px;
+      user-select: none;
     }
     #callStatus {
       margin-top: 15px;
@@ -106,6 +103,7 @@
       font-size: 20px;
       color: #555;
       min-height: 28px;
+      user-select: none;
     }
     audio {
       display: none;
@@ -113,23 +111,22 @@
   </style>
 </head>
 <body>
-
   <div class="container">
     <div class="avatar">
       <img src="https://p1.music.126.net/yt2mMmAar7c_Lv6H8gnPXg==/109951166888490096.jpg" alt="客服头像" />
     </div>
 
-    <h1>在线客服，随时为您服务</h1>
+    <h1>欢迎来到在线客服中心</h1>
 
     <button id="callButton" onclick="makeCall()">📞 呼叫客服</button>
-    <button id="hangupButton" onclick="hangupCall()" disabled>🛑 挂断通话</button>
+    <button id="hangupButton" onclick="hangupCall()" disabled>🛑 挂断</button>
     <button id="downloadApkButton">⬇️ 下载APP</button>
 
     <div id="callStatus">未呼叫</div>
     <audio id="audioRemote" autoplay></audio>
   </div>
 
-  <!-- 必要的 JsSIP 和 adapter -->
+  <!-- 必须的 JsSIP 和 adapter -->
   <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jssip@3.0.10/dist/jssip.min.js"></script>
 
@@ -181,9 +178,13 @@
           }
         });
 
-        session.connection.addEventListener('addstream', function (e) {
-          remoteAudio.srcObject = e.stream;
-          remoteAudio.play().catch(err => console.warn('自动播放失败:', err));
+        // 监听远端媒体流，兼容新版WebRTC的track事件
+        session.connection.addEventListener('track', function (event) {
+          // event.streams 是一个数组，取第一个流绑定给audio元素
+          if(event.streams && event.streams[0]) {
+            remoteAudio.srcObject = event.streams[0];
+            remoteAudio.play().catch(err => console.warn('自动播放失败:', err));
+          }
         });
 
         session.on('progress', () => updateStatus("振铃中..."));
