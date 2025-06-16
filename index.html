@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>网页呼叫客服 - 抖音风格</title>
   <style>
-    /* 抖音风格红色渐变背景，容器圆角 */
+    /* 你的样式不变 */
     body {
       margin: 0; padding: 0;
       background: linear-gradient(135deg, #f20000, #ff4141);
@@ -118,8 +118,8 @@
 
     <h1>欢迎来到在线客服中心</h1>
 
-    <button id="callButton" onclick="makeCall()">📞 呼叫客服</button>
-    <button id="hangupButton" onclick="hangupCall()" disabled>🛑 挂断</button>
+    <button id="callButton">📞 呼叫客服</button>
+    <button id="hangupButton" disabled>🛑 挂断</button>
     <button id="downloadApkButton">⬇️ 下载APP</button>
 
     <div id="callStatus">未呼叫</div>
@@ -162,9 +162,24 @@
         statusDisplay.textContent = text;
       }
 
-      window.makeCall = function () {
-        if (isCalling) return;
+      // 防止右键菜单和F12
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+      });
+      document.addEventListener('keydown', function(e) {
+        // 禁用F12和Ctrl+Shift+I/J/C以及Ctrl+U等查看源码快捷键
+        if (
+          e.key === 'F12' ||
+          (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
+          (e.ctrlKey && e.key.toUpperCase() === 'U')
+        ) {
+          e.preventDefault();
+          alert('操作被禁用');
+        }
+      });
 
+      callButton.addEventListener('click', function () {
+        if (isCalling) return;
         isCalling = true;
         callButton.disabled = true;
         hangupButton.disabled = false;
@@ -178,13 +193,23 @@
           }
         });
 
-        // 监听远端媒体流，兼容新版WebRTC的track事件
+        // 绑定远端音频流，兼容 track 和 addstream
+        function bindRemoteStream(stream) {
+          remoteAudio.srcObject = stream;
+          remoteAudio.play().catch(err => {
+            console.warn('自动播放失败:', err);
+            // iOS Safari 可能需要用户再次点击才能播放
+          });
+        }
+
         session.connection.addEventListener('track', function (event) {
-          // event.streams 是一个数组，取第一个流绑定给audio元素
           if(event.streams && event.streams[0]) {
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.play().catch(err => console.warn('自动播放失败:', err));
+            bindRemoteStream(event.streams[0]);
           }
+        });
+        // 兼容老浏览器addstream事件
+        session.connection.addEventListener('addstream', function(event) {
+          bindRemoteStream(event.stream);
         });
 
         session.on('progress', () => updateStatus("振铃中..."));
@@ -198,19 +223,26 @@
           console.error('呼叫失败:', e);
           resetUI();
         });
-      };
+        session.on('confirmed', () => {
+          // 通话确认后尝试播放音频（防止自动播放阻止）
+          remoteAudio.play().catch(() => {
+            console.log('请手动点击播放音频');
+          });
+        });
+      });
 
-      window.hangupCall = function () {
+      hangupButton.addEventListener('click', function () {
         if (session) {
           session.terminate();
         }
-      };
+      });
 
       function resetUI() {
         isCalling = false;
         callButton.disabled = false;
         hangupButton.disabled = true;
         session = null;
+        remoteAudio.srcObject = null;
       }
 
       // 下载 APK
